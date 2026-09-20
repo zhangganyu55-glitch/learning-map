@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>学习地图 · 界面冒烟测试</title>
+<!--
+  用法（必须允许 file:// 页面互相访问，否则读不到 iframe 内部）：
+
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu \
+    --no-first-run --allow-file-access-from-files --virtual-time-budget=12000 --dump-dom \
+    "file:///Users/gebilaozhang/Documents/Codex/我的项目/学习地图/tests/ui-smoke.html" \
+    | sed -n '/<pre id="out">/,/<\/pre>/p' | sed 's/<[^>]*>//g'
+
+  结尾出现 TOTAL n/n 且没有 FAIL 行，就算通过。
+  注意：这个测试会往浏览器 localStorage 写数据，用的是临时 profile，不会碰你平时用的那个。
+-->
+<body>
+<pre id="out">RUNNING</pre>
+<iframe id="f" src="../index.html" style="width:1280px;height:900px;border:1px solid #ccc"></iframe>
+<script>
+const log = [];
+const f = document.getElementById('f');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function ok(name, cond, extra) {
+  log.push((cond ? 'PASS' : 'FAIL') + ' | ' + name + (extra !== undefined ? ' | ' + extra : ''));
+}
+function finish() {
+  document.getElementById('out').textContent =
+    log.join('\n') + '\nTOTAL ' + log.filter((l) => l.startsWith('PASS')).length + '/' + log.length;
+  document.title = 'DONE';
+}
+
+f.addEventListener('load', () => {
+  run().catch((e) => { log.push('FAIL | 脚本抛错 | ' + e.message); finish(); });
+}, { once: true });
+
+async function run() {
+  const w = f.contentWindow;
+  const q = (sel) => f.contentDocument.querySelector(sel);
+  const qa = (sel) => Array.from(f.contentDocument.querySelectorAll(sel));
+
+  ok('渲染出 17 张周卡片', qa('.week').length === 17, qa('.week').length);
+  ok('顶栏热力条 19 格', qa('.cell').length === 19, qa('.cell').length);
+  ok('第一周默认展开', q('#week-w1').classList.contains('open'));
+  ok('第 15–16 周合并成一张卡', qa('.week-no').some((e) => e.textContent === '15–16'));
+  ok('交付项被单独标记', qa('#week-w1 .task.deliverable').length === 1);
+  ok('检查点横幅存在', qa('.checkpoint').length === 3, qa('.checkpoint').length);
+  ok('初始进度 0%', q('#ringLabel').textContent.includes('0%'), q('#ringLabel').textContent.trim());
+
+  q('#week-w1 .task .cb').click();
+  ok('勾选后任务变为完成态', q('#week-w1 .task').classList.contains('done'));
+  ok('单周进度变为 1/7', q('#week-w1 .week-prog span').textContent === '1/7', q('#week-w1 .week-prog span').textContent);
+  ok('顶部总进度跟着变', !q('#ringLabel').textContent.includes('0%'), q('#ringLabel').textContent.trim());
+  ok('打卡天数记为 1 天', q('#streakNum').textContent === '1 天', q('#streakNum').textContent);
+  ok('localStorage 已写入', !!w.localStorage.getItem('learning-map-state-v1'));
+  q('#week-w1 .task .cb').click();
+  ok('取消勾选还原', !q('#week-w1 .task').classList.contains('done') && q('#week-w1 .week-prog span').textContent === '0/7');
+  q('#week-w1 .task .cb').click();
+
+  const add = q('#week-w1 [data-role="add"]');
+  add.value = '我自己加的一条任务';
+  add.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await sleep(30);
+  ok('加任务后出现在列表里', qa('#week-w1 .task-text').some((e) => e.textContent === '我自己加的一条任务'));
+  ok('加任务后单周进度变 1/8', q('#week-w1 .week-prog span').textContent === '1/8', q('#week-w1 .week-prog span').textContent);
+
+  const secondText = qa('#week-w1 .task-text')[1].textContent;
+  qa('#week-w1 .task')[1].querySelector('[data-act="up"]').click();
+  await sleep(30);
+  ok('上移按钮换到了第一位', qa('#week-w1 .task-text')[0].textContent === secondText);
+
+  q('#week-w2 .week-head').click();
+  await sleep(30);
+  ok('点周标题栏能展开第 2 周', q('#week-w2').classList.contains('open'));
+
+  const beforeDelete = qa('#week-w1 .task').length;
+  qa('#week-w1 .task')[0].querySelector('[data-act="del"]').click();
+  await sleep(30);
+  ok('删除按钮生效', qa('#week-w1 .task').length === beforeDelete - 1);
+  const undoBtn = qa('#toast button').find((b) => b.textContent === '撤销');
+  ok('删除后有撤销按钮', !!undoBtn);
+  if (undoBtn) {
+    undoBtn.click();
+    await sleep(30);
+    ok('撤销把任务放回来了', qa('#week-w1 .task').length === beforeDelete);
+  }
+
+  q('#week-w3 .week-head').click();
+  await sleep(30);
+  q('#week-w3 [data-role="note"]').value = '闭包没想明白';
+  q('#week-w3 [data-role="note"]').dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(500);
+  const saved = JSON.parse(w.localStorage.getItem('learning-map-state-v1'));
+  ok('卡点写进了本地存储', saved.weeks.some((x) => x.note === '闭包没想明白'));
+
+  const ringBefore = q('#ringLabel').textContent;
+  qa('.cell')[0].click();
+  await sleep(30);
+  ok('点热力格不出错', q('#ringLabel').textContent === ringBefore);
+
+  const titleBefore = q('#week-w4 .week-title').textContent;
+  q('#week-w4 .week-title').dispatchEvent(new w.MouseEvent('dblclick', { bubbles: true }));
+  await sleep(30);
+  const input = q('#week-w4 .edit-input');
+  ok('双击标题出现输入框', !!input);
+  if (input) {
+    input.value = '改过的标题';
+    input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sleep(30);
+    ok('回车后标题改了', q('#week-w4 .week-title').textContent === '改过的标题', titleBefore + ' → ' + q('#week-w4 .week-title').textContent);
+  }
+
+  q('#toolbar [data-act="expand"]').click();
+  await sleep(30);
+  ok('全部展开生效', qa('.week.open').length === 17, qa('.week.open').length);
+  q('#toolbar [data-act="collapse"]').click();
+  await sleep(30);
+  ok('全部折叠生效', qa('.week.open').length === 0);
+
+  q('#toolbar [data-act="addWeek"]').click();
+  await sleep(30);
+  ok('加一周生效', qa('.week').length === 18, qa('.week').length);
+
+  const doneLi = qa('#week-w1 .task').find((li) => li.classList.contains('done'));
+  const doneId = doneLi ? doneLi.dataset.task : null;
+  ok('刷新前确实有一条勾好的任务', !!doneId);
+  await new Promise((res) => { f.addEventListener('load', res, { once: true }); f.contentWindow.location.reload(); });
+  await sleep(60);
+  ok('刷新后勾选状态还在（按任务 id 核对）', !!doneId && q('#week-w1 .task[data-task="' + doneId + '"]').classList.contains('done'));
+  ok('刷新后总进度也还在', !q('#ringLabel').textContent.includes('0%'), q('#ringLabel').textContent.trim());
+  ok('刷新后卡点文字还在', q('#week-w3 [data-role="note"]').value === '闭包没想明白', q('#week-w3 [data-role="note"]').value);
+  ok('刷新后加的那一周还在', qa('.week').length === 18, qa('.week').length);
+
+  const btn = q('#toolbar [data-act="reset"]');
+  btn.click();
+  await sleep(30);
+  ok('重置需要点两次（第一次只是确认）', qa('.week').length === 18);
+  btn.click();
+  await sleep(30);
+  ok('第二次点击后回到预置计划', qa('.week').length === 17 && q('#ringLabel').textContent.includes('0%'), q('#ringLabel').textContent.trim());
+  ok('重置后周卡片标题回到预置值', q('#week-w4 .week-title').textContent === titleBefore);
+
+  finish();
+}
+</script>
+</body>
+</html>

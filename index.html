@@ -3,10 +3,331 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>学习地图</title>
+<style>
+:root{
+  --bg-0:#0b1020; --bg-1:#111834; --bg-2:#0c1226;
+  --card:rgba(255,255,255,.045); --card-hi:rgba(255,255,255,.075);
+  --line:rgba(255,255,255,.08); --line-strong:rgba(255,255,255,.16);
+  --txt:#e8ecf8; --txt-2:#98a2b8; --txt-3:#5c6780;
+  --a1:#6366f1; --a2:#22d3ee; --warn:#fbbf24;
+  --r:18px; --r-sm:12px; --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh; color:var(--txt);
+  font:14px/1.6 -apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1200px 620px at 12% -12%, rgba(99,102,241,.24), transparent 62%),
+    radial-gradient(900px 520px at 88% -6%, rgba(34,211,238,.16), transparent 58%),
+    linear-gradient(180deg,var(--bg-0),var(--bg-1) 55%,var(--bg-2));
+  background-attachment:fixed;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.5;
+  background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size:3px 3px;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--a2);outline-offset:2px;border-radius:8px}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  backdrop-filter:blur(18px) saturate(140%);
+  -webkit-backdrop-filter:blur(18px) saturate(140%);
+  background:linear-gradient(180deg,rgba(11,16,32,.86),rgba(11,16,32,.62));
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:1120px; margin:0 auto; padding:14px 22px;
+  display:grid; grid-template-columns:minmax(190px,auto) 1fr auto; gap:22px; align-items:center;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{
+  width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--a1),var(--a2));color:#05121c;font-weight:800;font-size:17px;
+  box-shadow:0 8px 24px -10px rgba(99,102,241,.9);
+}
+.brand-title{font-size:15px;font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.brand-sub{font-size:12px;color:var(--txt-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.heat{display:flex;gap:4px;align-items:center;justify-content:center;overflow-x:auto;padding:4px 0;scrollbar-width:none}
+.heat::-webkit-scrollbar{display:none}
+.cell{
+  width:100%; min-width:12px; height:26px; border-radius:7px; padding:0;
+  border:1px solid rgba(255,255,255,.09); transition:transform .2s var(--ease),border-color .2s;
+}
+.cell:hover{transform:translateY(-3px);border-color:var(--line-strong)}
+.cell.now{box-shadow:0 0 0 2px rgba(34,211,238,.5)}
+
+.stats{display:flex;align-items:center;gap:16px}
+.ring-wrap{position:relative;width:64px;height:64px;flex:none}
+.ring{width:64px;height:64px;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:7;stroke-linecap:round}
+.ring .bg{stroke:rgba(255,255,255,.08)}
+.ring .fg{stroke:url(#ringGrad);transition:stroke-dasharray .48s var(--ease)}
+.ring-label{
+  position:absolute;inset:0;display:grid;place-content:center;text-align:center;line-height:1.15;
+}
+.ring-label b{font-size:15px;font-variant-numeric:tabular-nums}
+.ring-label span{font-size:9px;color:var(--txt-3);font-variant-numeric:tabular-nums}
+.chip{
+  display:flex;flex-direction:column;gap:2px;padding:7px 12px;border-radius:12px;
+  background:var(--card);border:1px solid var(--line);white-space:nowrap;
+}
+.chip b{font-size:14px;font-variant-numeric:tabular-nums}
+.chip span{font-size:11px;color:var(--txt-3)}
+
+/* ---------- 工具条 ---------- */
+.shell{max-width:1120px;margin:0 auto;padding:22px;position:relative;z-index:1}
+.toolbar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:10px;margin-bottom:18px;border-radius:var(--r-sm);
+  background:var(--card);border:1px solid var(--line);
+}
+.toolbar .spacer{flex:1}
+.btn{
+  padding:7px 13px;border-radius:9px;font-size:13px;color:var(--txt-2);
+  border:1px solid transparent;transition:background .18s,color .18s,border-color .18s;
+}
+.btn:hover{background:var(--card-hi);color:var(--txt);border-color:var(--line)}
+.btn.armed{color:var(--warn);border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.1)}
+.btn.primary{color:#04121c;background:linear-gradient(135deg,var(--a1),var(--a2));font-weight:600}
+.hint{font-size:12px;color:var(--txt-3)}
+
+/* ---------- 周卡片 ---------- */
+.week{
+  border-radius:var(--r);border:1px solid var(--line);background:var(--card);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0) 46%);
+  margin-bottom:14px;overflow:hidden;
+  transition:border-color .2s,background .2s,box-shadow .3s var(--ease);
+}
+.week:hover{border-color:var(--line-strong)}
+.week.current{
+  border-color:rgba(99,102,241,.42);
+  box-shadow:0 0 0 1px rgba(99,102,241,.16),0 22px 48px -30px rgba(99,102,241,.9);
+}
+.week.done .week-no{background:linear-gradient(135deg,var(--a1),var(--a2));color:#04121c;border-color:transparent}
+.week-head{
+  display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;
+  padding:15px 18px;cursor:pointer;
+}
+.week-no{
+  min-width:44px;height:44px;padding:0 10px;border-radius:13px;border:1px solid var(--line-strong);
+  display:grid;place-items:center;font-size:13px;font-weight:650;color:var(--txt-2);
+  font-variant-numeric:tabular-nums;background:rgba(255,255,255,.03);white-space:nowrap;
+}
+.week-title{margin:0;font-size:16px;font-weight:650;letter-spacing:.2px}
+.week-title.editable:hover{color:var(--a2)}
+.week-sub{font-size:12px;color:var(--txt-3);margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stage-chip{
+  padding:1px 8px;border-radius:999px;background:rgba(99,102,241,.14);
+  border:1px solid rgba(99,102,241,.28);color:#c7cbff;font-size:11px;
+}
+.week-prog{display:flex;align-items:center;gap:9px;min-width:132px}
+.bar{height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;flex:1;min-width:64px}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width .48s var(--ease)}
+.week-prog span{font-size:12px;color:var(--txt-3);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.caret{
+  width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--txt-3);
+  transition:transform .28s var(--ease),background .18s;
+}
+.caret:hover{background:var(--card-hi);color:var(--txt)}
+.week.open .caret{transform:rotate(180deg)}
+.week-body{display:none;padding:2px 18px 18px;border-top:1px solid var(--line)}
+.week.open .week-body{display:block;animation:reveal .32s var(--ease)}
+@keyframes reveal{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.checkpoint{
+  margin:14px 0 4px;padding:11px 14px;border-radius:var(--r-sm);font-size:13px;color:#ffe6b0;
+  background:linear-gradient(90deg,rgba(251,191,36,.14),rgba(251,191,36,.03));
+  border:1px solid rgba(251,191,36,.24);
+}
+.tasks{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.task{
+  position:relative;display:grid;grid-template-columns:22px 1fr auto;gap:11px;align-items:start;
+  padding:9px 11px;border-radius:var(--r-sm);transition:background .16s;
+}
+.task:hover{background:rgba(255,255,255,.035)}
+.task.deliverable{background:linear-gradient(90deg,rgba(34,211,238,.09),rgba(34,211,238,0))}
+.task.deliverable::before{
+  content:"";position:absolute;left:0;top:9px;bottom:9px;width:2px;border-radius:2px;
+  background:linear-gradient(180deg,var(--a1),var(--a2));
+}
+.task.deliverable .task-text{color:#ecf8ff;font-weight:600}
+.cb{
+  width:20px;height:20px;margin-top:2px;padding:0;border-radius:7px;
+  border:1.5px solid rgba(255,255,255,.24);background:rgba(255,255,255,.03);
+  display:grid;place-items:center;transition:background .2s var(--ease),border-color .2s,transform .12s;
+}
+.cb:hover{border-color:var(--a2);transform:scale(1.06)}
+.cb::after{
+  content:"";width:9px;height:5px;margin-top:-3px;border-left:2px solid #04121c;border-bottom:2px solid #04121c;
+  transform:rotate(-45deg) scale(.35);opacity:0;transition:opacity .18s,transform .22s var(--ease);
+}
+.task.done .cb{background:linear-gradient(135deg,var(--a1),var(--a2));border-color:transparent}
+.task.done .cb::after{opacity:1;transform:rotate(-45deg) scale(1)}
+.task-text{transition:color .2s;word-break:break-word}
+.task.done .task-text{color:var(--txt-3);text-decoration:line-through;text-decoration-color:rgba(152,162,184,.35)}
+.task-tools{display:flex;gap:2px;opacity:0;transition:opacity .18s}
+.task:hover .task-tools,.task:focus-within .task-tools{opacity:1}
+.tool{
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  color:var(--txt-3);font-size:12px;transition:background .16s,color .16s;
+}
+.tool:hover{background:var(--card-hi);color:var(--txt)}
+.tool.del:hover{color:#fda4af;background:rgba(244,63,94,.12)}
+
+.add-row{display:flex;gap:9px;align-items:center;margin-top:10px}
+.add-row input,.edit-input,.note{
+  width:100%;background:rgba(255,255,255,.04);border:1px solid var(--line);
+  border-radius:10px;padding:8px 11px;transition:border-color .18s,background .18s;
+}
+.add-row input:focus,.edit-input:focus,.note:focus{outline:none;border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.05)}
+.add-row input::placeholder,.note::placeholder{color:var(--txt-3)}
+.edit-input{padding:4px 8px}
+
+.note-wrap{margin-top:14px}
+.note-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.note-head b{font-size:12px;color:var(--txt-2);font-weight:600}
+.note-head span{font-size:11px;color:var(--txt-3)}
+.note{min-height:62px;resize:vertical;line-height:1.55}
+.week-foot{display:flex;justify-content:flex-end;margin-top:12px}
+.week-del{font-size:12px;color:var(--txt-3);padding:5px 10px;border-radius:8px}
+.week-del:hover{color:#fda4af;background:rgba(244,63,94,.1)}
+.week-del.armed{color:var(--warn);background:rgba(251,191,36,.1)}
+
+/* ---------- 底部节奏 & 提示 ---------- */
+.panel{
+  margin-top:26px;padding:20px 22px;border-radius:var(--r);
+  background:var(--card);border:1px solid var(--line);
+}
+.panel h3{margin:0 0 4px;font-size:15px;font-weight:650}
+.panel p.lead{margin:0 0 16px;font-size:12px;color:var(--txt-3)}
+.rhythm{width:100%;border-collapse:collapse;font-size:13px}
+.rhythm td{padding:9px 6px;border-top:1px solid var(--line);color:var(--txt-2)}
+.rhythm tr:first-child td{border-top:none}
+.rhythm td:first-child{color:var(--txt);width:34%}
+.rhythm td:last-child{text-align:right;color:var(--txt-3);font-size:12px;white-space:nowrap}
+.callout{
+  margin-top:14px;padding:11px 14px;border-radius:var(--r-sm);font-size:13px;color:#c8f7ff;
+  background:linear-gradient(90deg,rgba(34,211,238,.12),rgba(99,102,241,.06));
+  border:1px solid rgba(34,211,238,.22);
+}
+.page-foot{text-align:center;color:var(--txt-3);font-size:12px;padding:26px 0 40px}
+
+/* ---------- 提示条 ---------- */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);z-index:40;
+  display:flex;align-items:center;gap:12px;max-width:min(560px,92vw);
+  padding:12px 15px;border-radius:14px;font-size:13px;
+  background:rgba(17,24,52,.94);border:1px solid var(--line-strong);
+  box-shadow:0 24px 60px -22px rgba(0,0,0,.95);
+  opacity:0;pointer-events:none;transition:opacity .26s var(--ease),transform .26s var(--ease);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast.warn{border-color:rgba(251,191,36,.4)}
+.toast button{color:var(--a2);font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:7px}
+.toast button:hover{background:rgba(34,211,238,.12)}
+
+@media (max-width:820px){
+  .topbar-inner{grid-template-columns:1fr auto;row-gap:12px}
+  .heat{grid-column:1/-1;justify-content:flex-start}
+}
+@media (max-width:640px){
+  .shell{padding:16px 14px}
+  .topbar-inner{padding:12px 14px}
+  .week-head{grid-template-columns:auto 1fr auto;gap:11px;padding:13px 14px}
+  .week-prog{grid-column:1/-1;min-width:0}
+  .caret{grid-row:1;grid-column:3}
+  .week-body{padding:2px 14px 16px}
+  .task{grid-template-columns:22px 1fr}
+  .task-tools{grid-column:2;opacity:1;justify-content:flex-end}
+  .stats{gap:10px}
+  .chip{padding:6px 9px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  body{background-attachment:scroll}
+}
+</style>
 </head>
 <body>
-<div id="app"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo">地</div>
+      <div style="min-width:0">
+        <div class="brand-title">学习地图</div>
+        <div class="brand-sub" id="stageLabel">正在加载…</div>
+      </div>
+    </div>
+    <div class="heat" id="heat" aria-label="19 周完成度"></div>
+    <div class="stats">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 64 64" aria-hidden="true">
+          <circle class="bg" cx="32" cy="32" r="26"></circle>
+          <circle class="fg" id="ringArc" cx="32" cy="32" r="26" stroke-dasharray="0 163.4"></circle>
+        </svg>
+        <div class="ring-label" id="ringLabel"><b>0%</b><span>0/0</span></div>
+      </div>
+      <div class="chip"><b id="streakNum">0 天</b><span>连续打卡</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <div class="toolbar" id="toolbar">
+    <button class="btn" data-act="expand">全部展开</button>
+    <button class="btn" data-act="collapse">全部折叠</button>
+    <button class="btn" data-act="addWeek">＋ 加一周</button>
+    <span class="spacer"></span>
+    <span class="hint">双击文字就能改</span>
+    <button class="btn" data-act="export">导出备份</button>
+    <button class="btn" data-act="import">导入备份</button>
+    <button class="btn" data-act="reset" id="resetBtn">重置为预置计划</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+
+  <main id="weeks"></main>
+
+  <section class="panel">
+    <h3>每周的节奏</h3>
+    <p class="lead">这五个月的时间预算：每周 8–12 小时。频率比时长重要。</p>
+    <table class="rhythm">
+      <tbody>
+        <tr><td>周一至周五</td><td>学 40 分钟 + 写 40 分钟</td><td>每天约 1.5 小时</td></tr>
+        <tr><td>周六</td><td>集中做本周交付物</td><td>2–3 小时</td></tr>
+        <tr><td>周日</td><td>休息，或补上没做完的部分</td><td>——</td></tr>
+        <tr><td>周日晚上</td><td>在卡点框里记一行：这周搞懂了什么</td><td>10 分钟</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">宁可每天 1.5 小时，也不要周末突击 8 小时。编程是肌肉记忆，靠频率不靠时长。</div>
+  </section>
+
+  <div class="page-foot">
+    数据只存在这台电脑的浏览器里，不上传任何地方。换电脑或清缓存前，先点「导出备份」。
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
 /* ===== CORE ===== */
 /* 纯逻辑区：不碰 DOM、不碰存储。测试从 index.html 里抽出这一段直接执行。 */
@@ -328,6 +649,472 @@ function importJSON(text) {
   return validateState(parsed);
 }
 /* ===== CORE END ===== */
+
+/* ===== UI ===== */
+var STORAGE_KEY = 'learning-map-state-v1';
+var state = null;
+var storageOK = true;
+var openWeeks = {};
+var resetArmed = false;
+var noteTimer = null;
+var TOUCH = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+
+function $(sel, root) { return (root || document).querySelector(sel); }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function weekRange(w) { return w.no === w.noEnd ? String(w.no) : w.no + '–' + w.noEnd; }
+
+function load() {
+  var raw = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    storageOK = false;
+    return { state: createInitialState(), message: '这个浏览器不允许本地保存，这次的修改关掉页面就没了。' };
+  }
+  if (!raw) return { state: createInitialState(), message: null };
+  try {
+    return { state: importJSON(raw), message: null };
+  } catch (e) {
+    return { state: createInitialState(), message: '本地保存的数据读不出来，已回到预置计划。' };
+  }
+}
+
+function save() {
+  if (!storageOK) return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, exportJSON(state));
+  } catch (e) {
+    storageOK = false;
+    toast('本地保存失败，这次的修改可能留不下来。', 'warn');
+  }
+}
+
+function toast(msg, kind, action) {
+  var box = $('#toast');
+  box.className = 'toast show' + (kind === 'warn' ? ' warn' : '');
+  box.innerHTML = '';
+  var span = document.createElement('span');
+  span.textContent = msg;
+  box.appendChild(span);
+  if (action) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = action.label;
+    b.addEventListener('click', function () { box.className = 'toast'; action.onClick(); });
+    box.appendChild(b);
+  }
+  var close = document.createElement('button');
+  close.type = 'button';
+  close.textContent = '关闭';
+  close.addEventListener('click', function () { box.className = 'toast'; });
+  box.appendChild(close);
+  window.clearTimeout(toast._t);
+  toast._t = window.setTimeout(function () { box.className = 'toast'; }, 6000);
+}
+
+function heatColor(ratio) {
+  var from = [43, 51, 88], to = [34, 211, 238];
+  var t = Math.max(0, Math.min(1, ratio || 0));
+  var out = from.map(function (v, i) { return Math.round(v + (to[i] - v) * t); });
+  return 'rgb(' + out.join(',') + ')';
+}
+
+function ratioByWeekNo() {
+  var map = {};
+  state.weeks.forEach(function (w) {
+    var r = weekProgress(w).ratio;
+    for (var n = w.no; n <= w.noEnd; n += 1) map[n] = r;
+  });
+  return map;
+}
+
+function renderHeat() {
+  var map = ratioByWeekNo();
+  var total = overallProgress(state).weeksTotal;
+  var cur = currentWeek(state);
+  var html = '';
+  for (var n = 1; n <= total; n += 1) {
+    var r = map[n] || 0;
+    var isNow = cur && n >= cur.no && n <= cur.noEnd;
+    html += '<button type="button" class="cell' + (isNow ? ' now' : '') + '" data-no="' + n + '"'
+      + ' title="第 ' + n + ' 周 · ' + Math.round(r * 100) + '%"'
+      + ' aria-label="第 ' + n + ' 周完成 ' + Math.round(r * 100) + '%"'
+      + ' style="background:' + heatColor(r) + '"></button>';
+  }
+  $('#heat').innerHTML = html;
+}
+
+function renderStats() {
+  var o = overallProgress(state);
+  var pct = Math.round(o.ratio * 100);
+  var C = 2 * Math.PI * 26;
+  $('#ringArc').setAttribute('stroke-dasharray', (o.ratio * C).toFixed(2) + ' ' + C.toFixed(2));
+  $('#ringLabel').innerHTML = '<b>' + pct + '%</b><span>' + o.done + '/' + o.total + '</span>';
+  $('#streakNum').textContent = streak(state, todayISO()) + ' 天';
+  var cur = currentWeek(state);
+  var weeks = '已完成 ' + o.weeksDone + ' / ' + o.weeksTotal + ' 周';
+  $('#stageLabel').textContent = cur
+    ? ('现在到第 ' + weekRange(cur) + ' 周 · ' + (cur.stage || '未定阶段') + ' · ' + weeks)
+    : weeks;
+}
+
+function taskHTML(week, t) {
+  return '<li class="task ' + (t.kind === 'deliverable' ? 'deliverable ' : '') + (t.done ? 'done' : '')
+    + '" data-task="' + t.id + '">'
+    + '<button type="button" class="cb" role="checkbox" aria-checked="' + (t.done ? 'true' : 'false')
+    + '" data-act="toggle" aria-label="勾选：' + esc(t.text) + '"></button>'
+    + '<span class="task-text" data-edit="task" data-task="' + t.id + '" title="双击修改">' + esc(t.text) + '</span>'
+    + '<span class="task-tools">'
+    + '<button type="button" class="tool" data-act="up" aria-label="上移">↑</button>'
+    + '<button type="button" class="tool" data-act="down" aria-label="下移">↓</button>'
+    + '<button type="button" class="tool del" data-act="del" aria-label="删除">✕</button>'
+    + '</span></li>';
+}
+
+function weekHTML(w) {
+  var p = weekProgress(w);
+  var pct = Math.round(p.ratio * 100);
+  var open = !!openWeeks[w.id];
+  var cur = currentWeek(state);
+  var isDone = p.total > 0 && p.done === p.total;
+  return '<article class="week' + (open ? ' open' : '') + (cur && cur.id === w.id ? ' current' : '') + (isDone ? ' done' : '')
+    + '" id="week-' + w.id + '" data-week="' + w.id + '">'
+    + '<div class="week-head" data-act="fold">'
+    + '<div class="week-no">' + weekRange(w) + '</div>'
+    + '<div class="week-meta">'
+    + '<h2 class="week-title editable" data-edit="title" title="双击修改周主题">' + esc(w.title) + '</h2>'
+    + '<div class="week-sub"><span class="editable" data-edit="label" title="双击修改时间提示">' + esc(w.label || '未定时间') + '</span>'
+    + (w.stage ? '<span class="stage-chip">' + esc(w.stage) + '</span>' : '')
+    + '</div></div>'
+    + '<div class="week-prog"><div class="bar"><i style="width:' + pct + '%"></i></div><span>' + p.done + '/' + p.total + '</span></div>'
+    + '<div class="caret" aria-hidden="true">⌄</div>'
+    + '</div>'
+    + '<div class="week-body">'
+    + (w.checkpoint ? '<div class="checkpoint">' + esc(w.checkpoint) + '</div>' : '')
+    + '<ul class="tasks">' + w.tasks.map(function (t) { return taskHTML(w, t); }).join('') + '</ul>'
+    + '<div class="add-row"><input type="text" data-role="add" placeholder="加一条自己要做的，回车确认"></div>'
+    + '<div class="note-wrap">'
+    + '<div class="note-head"><b>卡点记录</b><span>今天卡在哪？不知道怎么写也行</span></div>'
+    + '<textarea class="note" data-role="note" placeholder="例：闭包到底什么时候用得上，没想明白">' + esc(w.note || '') + '</textarea>'
+    + '</div>'
+    + '<div class="week-foot"><button type="button" class="week-del" data-act="delWeek">删除这一周</button></div>'
+    + '</div></article>';
+}
+
+function renderWeeks() {
+  $('#weeks').innerHTML = state.weeks.map(weekHTML).join('')
+    + '<div style="text-align:center;margin-top:18px">'
+    + '<button type="button" class="btn primary" data-act="addWeek" style="padding:10px 20px">＋ 加一周</button>'
+    + '</div>';
+}
+
+function renderAll() {
+  renderWeeks();
+  renderHeat();
+  renderStats();
+}
+
+function refreshProgress() {
+  renderHeat();
+  renderStats();
+  var cur = currentWeek(state);
+  state.weeks.forEach(function (w) {
+    var el = document.getElementById('week-' + w.id);
+    if (!el) return;
+    var p = weekProgress(w);
+    el.classList.toggle('done', p.total > 0 && p.done === p.total);
+    el.classList.toggle('current', !!(cur && cur.id === w.id));
+    var bar = el.querySelector('.bar i');
+    if (bar) bar.style.width = Math.round(p.ratio * 100) + '%';
+    var label = el.querySelector('.week-prog span');
+    if (label) label.textContent = p.done + '/' + p.total;
+  });
+}
+
+function findPath(node) {
+  var weekEl = node.closest ? node.closest('.week') : null;
+  if (!weekEl) return null;
+  var taskEl = node.closest('.task');
+  return {
+    weekEl: weekEl,
+    weekId: weekEl.dataset.week,
+    taskId: taskEl ? taskEl.dataset.task : null
+  };
+}
+
+function beginEdit(node) {
+  var info = findPath(node);
+  if (!info) return;
+  var kind = node.dataset.edit;
+  var current = node.textContent;
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'edit-input';
+  input.value = current;
+  node.replaceWith(input);
+  input.focus();
+  input.select();
+  var settled = false;
+  function commit() {
+    if (settled) return;
+    settled = true;
+    var v = input.value.trim();
+    if (!v) { renderAll(); return; }
+    if (kind === 'task') {
+      state = updateTaskText(state, info.weekId, info.taskId, v);
+    } else {
+      var patch = {};
+      patch[kind] = v;
+      state = updateWeekMeta(state, info.weekId, patch);
+    }
+    save();
+    renderAll();
+  }
+  function cancel() {
+    if (settled) return;
+    settled = true;
+    renderAll();
+  }
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') commit();
+    else if (e.key === 'Escape') cancel();
+  });
+  input.addEventListener('blur', commit);
+}
+
+function toggleOpen(weekEl) {
+  var id = weekEl.dataset.week;
+  openWeeks[id] = !openWeeks[id];
+  weekEl.classList.toggle('open', !!openWeeks[id]);
+}
+
+function deleteTaskWithUndo(info) {
+  var week = findWeek(state, info.weekId);
+  if (!week) return;
+  var idx = week.tasks.findIndex(function (t) { return t.id === info.taskId; });
+  if (idx < 0) return;
+  var removed = week.tasks[idx];
+  var weekId = info.weekId;
+  state = deleteTask(state, weekId, info.taskId);
+  save();
+  renderAll();
+  toast('已删除一条任务', null, {
+    label: '撤销',
+    onClick: function () {
+      var w = findWeek(state, weekId);
+      if (!w) { renderAll(); return; }
+      var tasks = w.tasks.slice();
+      tasks.splice(Math.min(idx, tasks.length), 0, removed);
+      state = mapWeek(state, weekId, function (x) { return Object.assign({}, x, { tasks: tasks }); });
+      save();
+      renderAll();
+    }
+  });
+}
+
+function onWeeksClick(e) {
+  var editTarget = e.target.closest('[data-edit]');
+  var actBtn = e.target.closest('[data-act]');
+  var info = findPath(e.target);
+  if (!info && !actBtn) return;
+
+  var act = actBtn ? actBtn.dataset.act : null;
+  /* 鼠标环境：文字上的单击不动，编辑交给 dblclick；触屏环境：点一下就进编辑 */
+  if (editTarget) { if (TOUCH) beginEdit(editTarget); return; }
+  if (act === 'fold') { toggleOpen(info.weekEl); return; }
+
+  if (act === 'toggle') {
+    var week = findWeek(state, info.weekId);
+    var task = week && week.tasks.find(function (t) { return t.id === info.taskId; });
+    var willBeDone = task ? !task.done : false;
+    state = toggleTask(state, info.weekId, info.taskId);
+    if (willBeDone) state = toggleCheckin(state, todayISO(), true);
+    save();
+    var li = info.weekEl.querySelector('.task[data-task="' + info.taskId + '"]');
+    if (li) {
+      li.classList.toggle('done', willBeDone);
+      var cb = li.querySelector('.cb');
+      if (cb) cb.setAttribute('aria-checked', willBeDone ? 'true' : 'false');
+    }
+    refreshProgress();
+    return;
+  }
+  if (act === 'up' || act === 'down') {
+    state = moveTask(state, info.weekId, info.taskId, act === 'up' ? -1 : 1);
+    save();
+    renderAll();
+    return;
+  }
+  if (act === 'del') { deleteTaskWithUndo(info); return; }
+  if (act === 'delWeek') {
+    if (!actBtn.classList.contains('armed')) {
+      actBtn.classList.add('armed');
+      actBtn.textContent = '再点一次确认删除';
+      window.setTimeout(function () { actBtn.classList.remove('armed'); actBtn.textContent = '删除这一周'; }, 4000);
+      return;
+    }
+    state = removeWeek(state, info.weekId);
+    save();
+    renderAll();
+    return;
+  }
+  if (act === 'addWeek') {
+    var before = state.weeks.length;
+    state = addWeek(state);
+    openWeeks[state.weeks[before].id] = true;
+    save();
+    renderAll();
+    return;
+  }
+}
+
+function onWeeksDblClick(e) {
+  var node = e.target.closest('[data-edit]');
+  if (!node) return;
+  e.preventDefault();
+  beginEdit(node);
+}
+
+function onWeeksInput(e) {
+  var role = e.target.dataset ? e.target.dataset.role : null;
+  if (role !== 'note') return;
+  var info = findPath(e.target);
+  if (!info) return;
+  var value = e.target.value;
+  window.clearTimeout(noteTimer);
+  noteTimer = window.setTimeout(function () {
+    state = setWeekNote(state, info.weekId, value);
+    save();
+  }, 300);
+}
+
+function onWeeksKeydown(e) {
+  var role = e.target.dataset ? e.target.dataset.role : null;
+  if (role !== 'add' || e.key !== 'Enter') return;
+  var info = findPath(e.target);
+  if (!info) return;
+  var v = e.target.value.trim();
+  if (!v) return;
+  var wid = info.weekId;
+  state = addTask(state, wid, v);
+  save();
+  openWeeks[wid] = true;
+  renderAll();
+  var again = document.querySelector('#week-' + wid + ' [data-role="add"]');
+  if (again) again.focus();
+}
+
+function onToolbarClick(e) {
+  var btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  var act = btn.dataset.act;
+  if (act === 'expand') {
+    state.weeks.forEach(function (w) { openWeeks[w.id] = true; });
+    renderAll();
+  } else if (act === 'collapse') {
+    openWeeks = {};
+    renderAll();
+  } else if (act === 'addWeek') {
+    var before = state.weeks.length;
+    state = addWeek(state);
+    openWeeks[state.weeks[before].id] = true;
+    save();
+    renderAll();
+  } else if (act === 'export') {
+    doExport();
+  } else if (act === 'import') {
+    $('#fileInput').click();
+  } else if (act === 'reset') {
+    if (!resetArmed) {
+      resetArmed = true;
+      btn.classList.add('armed');
+      btn.textContent = '再点一次确认重置';
+      window.setTimeout(function () {
+        resetArmed = false;
+        btn.classList.remove('armed');
+        btn.textContent = '重置为预置计划';
+      }, 4000);
+      return;
+    }
+    resetArmed = false;
+    btn.classList.remove('armed');
+    btn.textContent = '重置为预置计划';
+    state = createInitialState();
+    openWeeks = {};
+    save();
+    renderAll();
+    toast('已回到预置的 19 周计划');
+  }
+}
+
+function onHeatClick(e) {
+  var cell = e.target.closest('.cell');
+  if (!cell) return;
+  var no = Number(cell.dataset.no);
+  var week = state.weeks.find(function (w) { return no >= w.no && no <= w.noEnd; });
+  if (!week) return;
+  openWeeks[week.id] = true;
+  renderAll();
+  var el = document.getElementById('week-' + week.id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function doExport() {
+  var blob = new Blob([exportJSON(state)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '学习地图-备份-' + todayISO() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  toast('已导出备份文件');
+}
+
+function onFileChosen(e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      state = importJSON(String(reader.result));
+      openWeeks = {};
+      save();
+      renderAll();
+      toast('导入成功，已经换成备份里的进度');
+    } catch (err) {
+      toast('导入失败：' + err.message, 'warn');
+    }
+  };
+  reader.onerror = function () { toast('文件读取失败', 'warn'); };
+  reader.readAsText(file, 'utf-8');
+}
+
+var boot = load();
+state = boot.state;
+var cur0 = currentWeek(state);
+if (cur0) openWeeks[cur0.id] = true;
+renderAll();
+if (boot.message) toast(boot.message, 'warn');
+
+$('#weeks').addEventListener('click', onWeeksClick);
+$('#weeks').addEventListener('dblclick', onWeeksDblClick);
+$('#weeks').addEventListener('input', onWeeksInput);
+$('#weeks').addEventListener('keydown', onWeeksKeydown);
+$('#toolbar').addEventListener('click', onToolbarClick);
+$('#heat').addEventListener('click', onHeatClick);
+$('#fileInput').addEventListener('change', onFileChosen);
 </script>
 </body>
 </html>

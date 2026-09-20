@@ -15,6 +15,13 @@ const CORE = new Function(`${m[1]}
 
 const firstTask = (s) => s.weeks[0].tasks[0];
 
+test('CORE 区的代码不含 DOM / 存储调用（预置数据文字除外）', () => {
+  const code = m[1].replace(/var SEED_WEEKS = \[[\s\S]*?\n\];/, '');
+  for (const k of ['document', 'window', 'localStorage']) {
+    assert.ok(!code.includes(k), `CORE 代码里出现 ${k}`);
+  }
+});
+
 test('预置数据：17 张卡覆盖 1..19 周且无缺口', () => {
   const s = CORE.createInitialState();
   assert.equal(s.weeks.length, 17);
@@ -86,8 +93,9 @@ test('currentWeek 指向第一张未完成的卡，全完成后指向最后一�
   assert.equal(CORE.currentWeek(s).no, 1);
   for (const t of s.weeks[0].tasks) s = CORE.toggleTask(s, s.weeks[0].id, t.id);
   assert.equal(CORE.currentWeek(s).no, 2);
-  for (const w of s.weeks) for (const t of w.tasks) s = CORE.toggleTask(s, w.id, t.id);
-  assert.equal(CORE.currentWeek(s).no, 19);
+  let all = CORE.createInitialState();
+  for (const w of all.weeks) for (const t of w.tasks) if (!t.done) all = CORE.toggleTask(all, w.id, t.id);
+  assert.equal(CORE.currentWeek(all).no, 19);
 });
 
 test('addTask：追加自定义任务，空文字忽略', () => {

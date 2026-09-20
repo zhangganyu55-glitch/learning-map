@@ -1,2 +1,333 @@
 <!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>学习地图</title>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===== CORE ===== */
+/* 纯逻辑区：不碰 DOM、不碰存储。测试从 index.html 里抽出这一段直接执行。 */
+
+var SEED_WEEKS = [
+  { id: 'w1', no: 1, noEnd: 1, label: '9 月下旬', title: '第一批代码', stage: '阶段 1 · JS 基础', checkpoint: null, note: '', tasks: [
+    { id: 'w1t1', text: '变量、数据类型、console.log、if、for', kind: 'learn', done: false },
+    { id: 'w1t2', text: '顺手确认终端操作：cd、ls、mkdir，用 node xxx.js 跑一个文件', kind: 'learn', done: false },
+    { id: 'w1t3', text: '打开 javascript.info 第一章，写满 20 行代码', kind: 'learn', done: false },
+    { id: 'w1t4', text: '建一个 learning-log 仓库，把这 20 行提交上去', kind: 'learn', done: false },
+    { id: 'w1t5', text: '把每天 1.5 小时的时段排进日历，设为周一至周五重复', kind: 'learn', done: false },
+    { id: 'w1t6', text: '顺手修补：把 code 命令装进 PATH（Cmd+Shift+P → Shell Command: Install \'code\' command in PATH）', kind: 'learn', done: false },
+    { id: 'w1t7', text: '一个能在终端里玩的猜数字游戏，必须是你自己敲的', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w2', no: 2, noEnd: 2, label: '10 月上旬', title: '函数', stage: '阶段 1 · JS 基础', checkpoint: null, note: '', tasks: [
+    { id: 'w2t1', text: 'function、参数、return、作用域', kind: 'learn', done: false },
+    { id: 'w2t2', text: '循环嵌套、字符串处理', kind: 'learn', done: false },
+    { id: 'w2t3', text: '九九乘法表 + 一个成绩判定函数', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w3', no: 3, noEnd: 3, label: '10 月上旬', title: '数组', stage: '阶段 1 · JS 基础', checkpoint: null, note: '', tasks: [
+    { id: 'w3t1', text: '数组基础、遍历、push / pop', kind: 'learn', done: false },
+    { id: 'w3t2', text: 'map / filter / reduce（这三个是重点，后面天天用）', kind: 'learn', done: false },
+    { id: 'w3t3', text: '给一组成绩做处理——求平均、筛出及格、按分数排序', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w4', no: 4, noEnd: 4, label: '10 月中旬', title: '对象', stage: '阶段 1 · JS 基础', checkpoint: null, note: '', tasks: [
+    { id: 'w4t1', text: '对象、属性访问、嵌套对象', kind: 'learn', done: false },
+    { id: 'w4t2', text: '解构、模板字符串', kind: 'learn', done: false },
+    { id: 'w4t3', text: '用对象描述若干学生信息，写函数做统计', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w5', no: 5, noEnd: 5, label: '10 月中旬', title: '函数进阶与模块', stage: '阶段 1 · JS 基础', checkpoint: null, note: '', tasks: [
+    { id: 'w5t1', text: '箭头函数、回调、高阶函数（闭包理解即可，不要求精通）', kind: 'learn', done: false },
+    { id: 'w5t2', text: 'import / export，把代码拆成多个文件', kind: 'learn', done: false },
+    { id: 'w5t3', text: '把前几周的小练习拆成有结构的多个文件', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w6', no: 6, noEnd: 6, label: '10 月下旬', title: '异步', stage: '阶段 1 · JS 基础', note: '',
+    checkpoint: '阶段 1 检查点：你现在应该能不看教程写出一个几十行的小工具。做不到就重做第 3、4 周，不要往下走。', tasks: [
+    { id: 'w6t1', text: 'Promise、async/await、fetch', kind: 'learn', done: false },
+    { id: 'w6t2', text: '调用一个公开 API 并展示数据（天气、汇率、GitHub 用户信息皆可）', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w7', no: 7, noEnd: 7, label: '11 月上旬', title: 'HTML 与 CSS', stage: '阶段 2 · 页面与上线', checkpoint: null, note: '', tasks: [
+    { id: 'w7t1', text: '语义化标签、盒模型、Flex 布局', kind: 'learn', done: false },
+    { id: 'w7t2', text: '一个静态个人主页的页面', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w8', no: 8, noEnd: 8, label: '11 月中旬', title: '部署上线 ★', stage: '阶段 2 · 页面与上线', note: '',
+    checkpoint: '这是整个五个月里最重要的一个里程碑。它意味着你第一次拥有了别人可以验证的成果。从这周起，你不再只是"在学"，而是"有作品"。', tasks: [
+    { id: 'w8t1', text: 'Git 提交、推送到 GitHub', kind: 'learn', done: false },
+    { id: 'w8t2', text: '开启 GitHub Pages，把你的页面部署上去', kind: 'learn', done: false },
+    { id: 'w8t3', text: '一个能发给任何人的链接（手机也能打开）', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w9', no: 9, noEnd: 9, label: '11 月中旬', title: 'DOM 与事件', stage: '阶段 2 · 页面与上线', checkpoint: null, note: '', tasks: [
+    { id: 'w9t1', text: 'querySelector、addEventListener、表单处理', kind: 'learn', done: false },
+    { id: 'w9t2', text: '一个交互式小工具（番茄钟、待办清单、单位换算任选）', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w10', no: 10, noEnd: 10, label: '11 月下旬', title: '让数据留下来', stage: '阶段 2 · 页面与上线', note: '',
+    checkpoint: '阶段 2 检查点：你有一个自己写的、在线的、能用的工具。', tasks: [
+    { id: 'w10t1', text: 'localStorage、数据与界面同步', kind: 'learn', done: false },
+    { id: 'w10t2', text: '简单的错误处理', kind: 'learn', done: false },
+    { id: 'w10t3', text: '上一个小工具加上数据保存，刷新不丢', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w11', no: 11, noEnd: 11, label: '12 月上旬', title: 'TypeScript 基础', stage: '阶段 3 · TS 与 React', checkpoint: null, note: '', tasks: [
+    { id: 'w11t1', text: '类型标注、接口、联合类型', kind: 'learn', done: false },
+    { id: 'w11t2', text: '把第 10 周的工具改成 TS', kind: 'learn', done: false },
+    { id: 'w11t3', text: '一个 TS 版本的交互工具', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w12', no: 12, noEnd: 12, label: '12 月中旬', title: 'React 入门', stage: '阶段 3 · TS 与 React', checkpoint: null, note: '', tasks: [
+    { id: 'w12t1', text: '组件、props、state、列表渲染', kind: 'learn', done: false },
+    { id: 'w12t2', text: '用 React 重写那个工具', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w13', no: 13, noEnd: 13, label: '12 月下旬', title: '期末周（编程降为最轻）', stage: '阶段 3 · TS 与 React', checkpoint: null, note: '', tasks: [
+    { id: 'w13t1', text: '主要精力给期末考试：这一学期不要挂科', kind: 'learn', done: false },
+    { id: 'w13t2', text: '编程只保留每天 20 分钟，读代码，不写新功能', kind: 'learn', done: false },
+    { id: 'w13t3', text: '考试不挂科', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w14', no: 14, noEnd: 14, label: '1 月上旬', title: '寒假前', stage: '过渡 · 期末收尾', checkpoint: null, note: '', tasks: [
+    { id: 'w14t1', text: '收尾期末考试', kind: 'learn', done: false },
+    { id: 'w14t2', text: '开始想寒假要做的东西（只做想法，不动手）', kind: 'learn', done: false },
+    { id: 'w14t3', text: '一个项目想法 + 三行验收标准', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w15', no: 15, noEnd: 16, label: '1 月下旬', title: '寒假前段 · 搭骨架', stage: '阶段 4 · 完整项目', checkpoint: null, note: '', tasks: [
+    { id: 'w15t1', text: '选一个你自己真的会每天打开的东西（不要做待办清单和博客）', kind: 'learn', done: false },
+    { id: 'w15t2', text: '先写"什么算做完"，再动手', kind: 'learn', done: false },
+    { id: 'w15t3', text: '搭好项目结构，跑通最小可用版本', kind: 'learn', done: false },
+    { id: 'w15t4', text: '能跑起来、但功能还很粗糙的雏形', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w16', no: 17, noEnd: 18, label: '2 月上旬', title: '寒假后段 · 完成并上线', stage: '阶段 4 · 完整项目', checkpoint: null, note: '', tasks: [
+    { id: 'w16t1', text: '补齐核心功能', kind: 'learn', done: false },
+    { id: 'w16t2', text: '部署上线', kind: 'learn', done: false },
+    { id: 'w16t3', text: '写 README，说明它做什么、怎么用', kind: 'learn', done: false },
+    { id: 'w16t4', text: '注意：2027 年春节在 2 月 6 日，前后约一周效率会很低，提前预留缓冲', kind: 'learn', done: false },
+    { id: 'w16t5', text: '一个上线的、你自己写的完整应用', kind: 'deliverable', done: false }
+  ] },
+  { id: 'w17', no: 19, noEnd: 19, label: '2 月下旬', title: '复盘与决定', stage: '阶段 5 · 复盘与决定', checkpoint: null, note: '', tasks: [
+    { id: 'w17t1', text: '用一个周末认真回答那两个问题', kind: 'learn', done: false },
+    { id: 'w17t2', text: '对着判断表做决定', kind: 'learn', done: false }
+  ] }
+];
+
+var META_KEYS = ['title', 'label', 'stage', 'checkpoint'];
+var idSeq = 0;
+
+function newId(prefix) {
+  idSeq += 1;
+  return prefix + '-' + Date.now().toString(36) + '-' + idSeq;
+}
+
+function clone(v) {
+  return JSON.parse(JSON.stringify(v));
+}
+
+function createInitialState() {
+  return { version: 1, projectTitle: '学习地图', weeks: clone(SEED_WEEKS), checkins: [] };
+}
+
+function findWeek(state, weekId) {
+  return state.weeks.find(function (w) { return w.id === weekId; }) || null;
+}
+
+function mapWeek(state, weekId, fn) {
+  return Object.assign({}, state, {
+    weeks: state.weeks.map(function (w) { return w.id === weekId ? fn(w) : w; })
+  });
+}
+
+function toggleTask(state, weekId, taskId) {
+  return mapWeek(state, weekId, function (w) {
+    return Object.assign({}, w, {
+      tasks: w.tasks.map(function (t) { return t.id === taskId ? Object.assign({}, t, { done: !t.done }) : t; })
+    });
+  });
+}
+
+function addTask(state, weekId, text) {
+  var t = String(text == null ? '' : text).trim();
+  if (!t) return state;
+  return mapWeek(state, weekId, function (w) {
+    return Object.assign({}, w, {
+      tasks: w.tasks.concat([{ id: newId('t'), text: t, kind: 'custom', done: false }])
+    });
+  });
+}
+
+function updateTaskText(state, weekId, taskId, text) {
+  var t = String(text == null ? '' : text).trim();
+  if (!t) return state;
+  return mapWeek(state, weekId, function (w) {
+    return Object.assign({}, w, {
+      tasks: w.tasks.map(function (x) { return x.id === taskId ? Object.assign({}, x, { text: t }) : x; })
+    });
+  });
+}
+
+function deleteTask(state, weekId, taskId) {
+  return mapWeek(state, weekId, function (w) {
+    return Object.assign({}, w, {
+      tasks: w.tasks.filter(function (x) { return x.id !== taskId; })
+    });
+  });
+}
+
+function moveTask(state, weekId, taskId, delta) {
+  return mapWeek(state, weekId, function (w) {
+    var i = w.tasks.findIndex(function (x) { return x.id === taskId; });
+    var j = i + delta;
+    if (i < 0 || j < 0 || j >= w.tasks.length) return w;
+    var tasks = w.tasks.slice();
+    var tmp = tasks[i];
+    tasks[i] = tasks[j];
+    tasks[j] = tmp;
+    return Object.assign({}, w, { tasks: tasks });
+  });
+}
+
+function addWeek(state) {
+  var lastNo = state.weeks.reduce(function (m, w) { return Math.max(m, w.noEnd); }, 0);
+  var no = lastNo + 1;
+  var week = {
+    id: newId('w'), no: no, noEnd: no, label: '', title: '新的一周',
+    stage: '', checkpoint: null, note: '', tasks: []
+  };
+  return Object.assign({}, state, { weeks: state.weeks.concat([week]) });
+}
+
+function removeWeek(state, weekId) {
+  if (state.weeks.length <= 1) return state;
+  return Object.assign({}, state, {
+    weeks: state.weeks.filter(function (w) { return w.id !== weekId; })
+  });
+}
+
+function setWeekNote(state, weekId, text) {
+  return mapWeek(state, weekId, function (w) {
+    return Object.assign({}, w, { note: String(text == null ? '' : text) });
+  });
+}
+
+function updateWeekMeta(state, weekId, patch) {
+  return mapWeek(state, weekId, function (w) {
+    var next = Object.assign({}, w);
+    META_KEYS.forEach(function (k) {
+      if (patch && Object.prototype.hasOwnProperty.call(patch, k)) next[k] = patch[k];
+    });
+    return next;
+  });
+}
+
+function weekProgress(week) {
+  var total = week.tasks.length;
+  var done = week.tasks.filter(function (t) { return t.done; }).length;
+  return { done: done, total: total, ratio: total ? done / total : 0 };
+}
+
+function currentWeek(state) {
+  for (var i = 0; i < state.weeks.length; i += 1) {
+    var p = weekProgress(state.weeks[i]);
+    if (p.total === 0 || p.done < p.total) return state.weeks[i];
+  }
+  return state.weeks[state.weeks.length - 1] || null;
+}
+
+function overallProgress(state) {
+  var done = 0, total = 0, weeksDone = 0, weeksTotal = 0;
+  state.weeks.forEach(function (w) {
+    var p = weekProgress(w);
+    done += p.done;
+    total += p.total;
+    weeksTotal += w.noEnd - w.no + 1;
+    if (p.total > 0 && p.done === p.total) weeksDone += w.noEnd - w.no + 1;
+  });
+  var cur = currentWeek(state);
+  return {
+    done: done, total: total, ratio: total ? done / total : 0,
+    weeksDone: weeksDone, weeksTotal: weeksTotal,
+    currentWeekId: cur ? cur.id : null, currentWeekNo: cur ? cur.no : null
+  };
+}
+
+function toggleCheckin(state, dateISO, on) {
+  var has = state.checkins.indexOf(dateISO) !== -1;
+  if (on === false) {
+    return has ? Object.assign({}, state, {
+      checkins: state.checkins.filter(function (d) { return d !== dateISO; })
+    }) : state;
+  }
+  if (has) return state;
+  return Object.assign({}, state, {
+    checkins: state.checkins.concat([dateISO]).sort()
+  });
+}
+
+function shiftDate(dateISO, days) {
+  var d = new Date(dateISO + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function streak(state, todayISO) {
+  var set = {};
+  state.checkins.forEach(function (d) { set[d] = true; });
+  var cursor = set[todayISO] ? todayISO : shiftDate(todayISO, -1);
+  var n = 0;
+  while (set[cursor]) {
+    n += 1;
+    cursor = shiftDate(cursor, -1);
+  }
+  return n;
+}
+
+function exportJSON(state) {
+  return JSON.stringify(state, null, 2);
+}
+
+function validateState(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('文件内容不是一个对象');
+  if (!Array.isArray(o.weeks) || o.weeks.length === 0) throw new Error('缺少 weeks 数组');
+  var weeks = o.weeks.map(function (w, i) {
+    if (!w || typeof w !== 'object') throw new Error('第 ' + (i + 1) + ' 张周卡片不是对象');
+    if (typeof w.id !== 'string' || !w.id) throw new Error('第 ' + (i + 1) + ' 张周卡片缺少 id');
+    if (typeof w.title !== 'string') throw new Error('第 ' + (i + 1) + ' 张周卡片缺少 title');
+    if (!Array.isArray(w.tasks)) throw new Error('第 ' + (i + 1) + ' 张周卡片缺少 tasks');
+    var no = typeof w.no === 'number' && isFinite(w.no) ? w.no : i + 1;
+    var noEnd = typeof w.noEnd === 'number' && isFinite(w.noEnd) && w.noEnd >= no ? w.noEnd : no;
+    return {
+      id: w.id,
+      no: no,
+      noEnd: noEnd,
+      label: typeof w.label === 'string' ? w.label : '',
+      title: w.title,
+      stage: typeof w.stage === 'string' ? w.stage : '',
+      checkpoint: typeof w.checkpoint === 'string' ? w.checkpoint : null,
+      note: typeof w.note === 'string' ? w.note : '',
+      tasks: w.tasks.map(function (t, j) {
+        if (!t || typeof t.id !== 'string' || typeof t.text !== 'string') {
+          throw new Error('第 ' + (i + 1) + ' 张周卡片第 ' + (j + 1) + ' 条任务无效');
+        }
+        return {
+          id: t.id,
+          text: t.text,
+          kind: t.kind === 'learn' || t.kind === 'deliverable' ? t.kind : 'custom',
+          done: !!t.done
+        };
+      })
+    };
+  });
+  return {
+    version: 1,
+    projectTitle: typeof o.projectTitle === 'string' && o.projectTitle ? o.projectTitle : '学习地图',
+    weeks: weeks,
+    checkins: Array.isArray(o.checkins) ? o.checkins.filter(function (d) { return typeof d === 'string'; }) : []
+  };
+}
+
+function importJSON(text) {
+  var parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw new Error('不是合法的 JSON：' + e.message);
+  }
+  return validateState(parsed);
+}
+/* ===== CORE END ===== */
+</script>
+</body>
+</html>

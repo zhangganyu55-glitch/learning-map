@@ -22,6 +22,7 @@
   --ease:cubic-bezier(.22,1,.36,1);
 }
 *{box-sizing:border-box}
+[hidden]{display:none !important}
 html,body{margin:0;padding:0}
 body{
   min-height:100vh;background:var(--paper);color:var(--ink);
@@ -158,6 +159,31 @@ input,textarea{font:inherit;color:inherit}
 .toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .toast button{color:var(--sand);font-weight:600;white-space:nowrap;padding:2px 6px;border-radius:999px}
 
+/* ---------- 回顾 ---------- */
+.seg{display:flex;gap:4px;background:#efeae1;border-radius:999px;padding:4px;margin-bottom:24px}
+.seg button{flex:1;padding:8px 0;border-radius:999px;font-size:14px;color:var(--ink-2);transition:background .2s var(--ease),color .2s}
+.seg button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(43,40,35,.07)}
+
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:15px 10px;text-align:center}
+.stat b{display:block;font-size:23px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--ink-2)}
+
+.sec-title{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-2);margin:28px 2px 10px}
+.mini{display:grid;grid-template-columns:repeat(15,1fr);gap:4px;background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:14px}
+.mini-cell{aspect-ratio:1/1;border-radius:4px;border:none;padding:0;transition:transform .15s var(--ease)}
+.mini-cell:hover{transform:scale(1.18)}
+.mini-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--ink-3);margin-top:10px;padding-left:2px}
+.mini-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+.notes{display:flex;flex-direction:column;gap:8px}
+.note-item{text-align:left;background:var(--card);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:12px 14px;transition:border-color .18s}
+.note-item:hover{border-color:var(--sand)}
+.note-item b{display:block;font-size:11px;font-weight:600;color:var(--sand-ink);margin-bottom:4px}
+.note-item span{font-size:14px;white-space:pre-wrap;word-break:break-word}
+.more{display:block;margin:12px auto 0;font-size:13px;color:var(--ink-2);padding:7px 16px;border-radius:999px}
+.more:hover{background:#efeae1;color:var(--ink)}
+
 @media (max-width:420px){
   .wrap{padding:20px 14px 50px}
   .month-big{font-size:27px}
@@ -172,6 +198,12 @@ input,textarea{font:inherit;color:inherit}
 </head>
 <body>
 <div class="wrap">
+  <div class="seg" id="seg">
+    <button type="button" data-act="viewCalendar" class="on">日历</button>
+    <button type="button" data-act="viewReview">回顾</button>
+  </div>
+
+  <div id="viewCalendar">
   <div class="top">
     <div class="month-big" id="monthBig">9月<small id="monthSub">2026年</small></div>
     <div class="nav">
@@ -200,6 +232,28 @@ input,textarea{font:inherit;color:inherit}
   <div class="note-block">
     <label for="note">今天的卡点</label>
     <textarea class="note" id="note" placeholder="卡在哪？不知道怎么写也行"></textarea>
+  </div>
+  </div><!-- /viewCalendar -->
+
+  <div id="viewReview" hidden>
+    <div class="stat-row">
+      <div class="stat"><b id="statStreak">0</b><span>连续打卡（天）</span></div>
+      <div class="stat"><b id="statDone">0</b><span>累计完成（条）</span></div>
+      <div class="stat"><b id="statMonth">0%</b><span>本月完成率</span></div>
+    </div>
+
+    <div class="sec-title"><span>最近 30 天</span><span id="miniRange"></span></div>
+    <div class="mini" id="mini"></div>
+    <div class="mini-legend">
+      <span><i style="background:#c8a87c"></i>全部完成</span>
+      <span><i style="background:rgba(200,168,124,.45)"></i>完成一部分</span>
+      <span><i style="background:#e6e0d6"></i>有安排没做</span>
+      <span><i style="background:#f3f0ea"></i>没安排</span>
+    </div>
+
+    <div class="sec-title"><span>写过的卡点</span><span id="noteCount"></span></div>
+    <div class="notes" id="notes"></div>
+    <button type="button" class="more" id="moreNotes" data-act="moreNotes" hidden>展开全部</button>
   </div>
 
   <div class="foot">
@@ -337,6 +391,35 @@ function monthStats(state, year, month) {
   var list = state.tasks.filter(function (t) { return t.date.slice(0, 7) === prefix; });
   var done = list.filter(function (t) { return t.done; }).length;
   return { done: done, total: list.length, ratio: list.length ? done / list.length : 0 };
+}
+
+function completedCount(state) {
+  return state.tasks.filter(function (t) { return t.done; }).length;
+}
+
+function totalCount(state) {
+  return state.tasks.length;
+}
+
+function recentDays(state, endISO, n) {
+  var out = [];
+  for (var i = n - 1; i >= 0; i -= 1) {
+    var iso = shiftDate(endISO, -i);
+    var s = dayStats(state, iso);
+    out.push({
+      iso: iso, done: s.done, total: s.total, ratio: s.ratio,
+      checked: state.checkins.indexOf(iso) !== -1
+    });
+  }
+  return out;
+}
+
+function noteList(state) {
+  return Object.keys(state.notes)
+    .filter(function (k) { return String(state.notes[k]).trim().length > 0; })
+    .sort()
+    .reverse()
+    .map(function (k) { return { date: k, text: state.notes[k] }; });
 }
 
 function mapTasks(state, fn) {
@@ -513,6 +596,8 @@ var selected = null;
 var resetArmed = false;
 var noteTimer = null;
 var addOpen = false;
+var currentView = 'calendar';
+var notesExpanded = false;
 
 function $(sel) { return document.querySelector(sel); }
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -639,14 +724,64 @@ function renderNote() {
   if (document.activeElement !== el) el.value = getNote(state, selected);
 }
 
+function miniColor(d) {
+  if (d.total === 0) return '#f3f0ea';
+  if (d.ratio >= 1) return '#c8a87c';
+  if (d.done > 0) return 'rgba(200,168,124,.45)';
+  return '#e6e0d6';
+}
+
+function renderReview() {
+  var today = todayISO();
+  var now = parseISO(today);
+  var ms = monthStats(state, now.getUTCFullYear(), now.getUTCMonth() + 1);
+  $('#statStreak').textContent = streak(state, today);
+  $('#statDone').textContent = completedCount(state) + '/' + totalCount(state);
+  $('#statMonth').textContent = Math.round(ms.ratio * 100) + '%';
+
+  var days = recentDays(state, today, 30);
+  $('#mini').innerHTML = days.map(function (d) {
+    return '<button type="button" class="mini-cell" data-date="' + d.iso + '"'
+      + ' style="background:' + miniColor(d) + '"'
+      + ' title="' + d.iso + ' · ' + d.done + '/' + d.total + '"'
+      + ' aria-label="' + d.iso + ' 完成 ' + d.done + ' / ' + d.total + '"></button>';
+  }).join('');
+  var short = function (iso) { return iso.slice(5).replace('-', '/'); };
+  $('#miniRange').textContent = short(days[0].iso) + ' – ' + short(days[days.length - 1].iso);
+
+  var list = noteList(state);
+  $('#noteCount').textContent = list.length ? list.length + ' 条' : '';
+  if (!list.length) {
+    $('#notes').innerHTML = '<div class="empty">还没有写过卡点。卡住的时候回日历页，写在「今天的卡点」里，之后都会汇总到这儿。</div>';
+  } else {
+    var shown = notesExpanded ? list : list.slice(0, 8);
+    $('#notes').innerHTML = shown.map(function (n) {
+      var d = parseISO(n.date);
+      return '<button type="button" class="note-item" data-date="' + n.date + '">'
+        + '<b>' + (d.getUTCMonth() + 1) + '月' + d.getUTCDate() + '日 · ' + WEEKDAY_CN[weekdayIndex(n.date)] + '</b>'
+        + '<span>' + esc(n.text) + '</span></button>';
+    }).join('');
+  }
+  var more = $('#moreNotes');
+  more.hidden = list.length <= 8;
+  more.textContent = notesExpanded ? '收起' : '展开全部 ' + list.length + ' 条';
+}
+
 function renderAll() {
   renderHead();
   renderGrid();
   renderRows();
   renderNote();
+  renderReview();
   $('#addBox').className = 'add-box' + (addOpen ? ' on' : '');
   $('#addPill').style.display = addOpen ? 'none' : '';
   if (addOpen) $('#addInput').focus();
+  $('#viewCalendar').hidden = currentView !== 'calendar';
+  $('#viewReview').hidden = currentView !== 'review';
+  var segs = document.querySelectorAll('#seg button');
+  Array.prototype.forEach.call(segs, function (b) {
+    b.classList.toggle('on', b.dataset.act === (currentView === 'calendar' ? 'viewCalendar' : 'viewReview'));
+  });
 }
 
 function selectDate(iso, scroll) {
@@ -731,8 +866,12 @@ function deleteWithUndo(taskId) {
 }
 
 function onClick(e) {
-  var cell = e.target.closest('.cell');
-  if (cell) { selectDate(cell.dataset.date, true); return; }
+  var jump = e.target.closest('.cell, .mini-cell, .note-item');
+  if (jump && jump.dataset.date) {
+    currentView = 'calendar';
+    selectDate(jump.dataset.date, jump.classList.contains('cell'));
+    return;
+  }
 
   var rowEl = e.target.closest('.row');
   var actBtn = e.target.closest('[data-act]');
@@ -769,6 +908,9 @@ function onClick(e) {
   }
 
   if (act === 'showAdd') { addOpen = true; renderAll(); return; }
+  if (act === 'viewCalendar') { currentView = 'calendar'; renderAll(); return; }
+  if (act === 'viewReview') { currentView = 'review'; renderAll(); return; }
+  if (act === 'moreNotes') { notesExpanded = !notesExpanded; renderReview(); return; }
   if (act === 'prevMonth') { view = shiftMonth(view.year, view.month, -1); renderAll(); return; }
   if (act === 'nextMonth') { view = shiftMonth(view.year, view.month, 1); renderAll(); return; }
   if (act === 'today') { addOpen = false; selectDate(todayISO(), false); return; }

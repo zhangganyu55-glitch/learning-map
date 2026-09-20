@@ -11,10 +11,12 @@ assert.ok(m, '找不到 CORE 标记');
 const CORE = new Function(`${m[1]}
   return { createInitialState, tasksOn, findTask, dayStats, monthStats, toggleTask, addTask,
     updateTaskText, deleteTask, restoreTask, moveTaskToDate, reorderTask, setNote, getNote,
-    monthMatrix, shiftMonth, shiftDate, weekdayIndex, toggleCheckin, streak, exportJSON, importJSON };`)();
+    monthMatrix, shiftMonth, shiftDate, weekdayIndex, toggleCheckin, streak, exportJSON, importJSON,
+    completedCount, totalCount, recentDays, noteList };`)();
 
 const TODAY = '2026-09-20';
 const fresh = () => CORE.createInitialState(TODAY);
+const shiftOf = (iso, n) => CORE.shiftDate(iso, n);
 
 test('CORE 区的代码不含 DOM / 存储调用（预置数据文字除外）', () => {
   const code = m[1].replace(/var SEED_ITEMS = \[[\s\S]*?\n\];/, '');
@@ -163,6 +165,48 @@ test('卡点记录：写入、读取、清空', () => {
   assert.equal(CORE.getNote(s2, TODAY), '闭包没想明白');
   assert.equal(CORE.getNote(s, TODAY), '', '不得修改入参');
   assert.equal(CORE.getNote(CORE.setNote(s2, TODAY, ''), TODAY), '');
+});
+
+test('completedCount / totalCount', () => {
+  const s = fresh();
+  assert.equal(CORE.totalCount(s), 53);
+  assert.equal(CORE.completedCount(s), 0);
+  const one = CORE.toggleTask(s, s.tasks[0].id);
+  assert.equal(CORE.completedCount(one), 1);
+  assert.equal(CORE.completedCount(s), 0, '不得修改入参');
+});
+
+test('recentDays：连续 30 天，最后一天是今天，含完成数与打卡标记', () => {
+  let s = fresh();
+  s = CORE.addTask(s, shiftOf(TODAY, -3), '三天前多的一件');
+  s = CORE.toggleTask(s, s.tasks[0].id);
+  s = CORE.toggleCheckin(s, TODAY, true);
+  const days = CORE.recentDays(s, TODAY, 30);
+  assert.equal(days.length, 30);
+  assert.equal(days[0].iso, shiftOf(TODAY, -29));
+  assert.equal(days[29].iso, TODAY);
+  for (let i = 1; i < days.length; i += 1) {
+    assert.equal(days[i].iso, shiftOf(days[i - 1].iso, 1), '日期必须连续');
+  }
+  assert.deepEqual(days[29], { iso: TODAY, done: 1, total: 1, ratio: 1, checked: true });
+  const back3 = days.find((d) => d.iso === shiftOf(TODAY, -3));
+  assert.equal(back3.total, 1, '预置任务只从今天往后排，三天前只有我手动加的那一条');
+  assert.equal(back3.done, 0);
+  assert.equal(back3.checked, false);
+});
+
+test('noteList：按日期倒序、忽略空白', () => {
+  let s = fresh();
+  assert.deepEqual(CORE.noteList(s), []);
+  s = CORE.setNote(s, '2026-09-18', '第一条');
+  s = CORE.setNote(s, '2026-09-20', '第三条');
+  s = CORE.setNote(s, '2026-09-19', '第二条');
+  s = CORE.setNote(s, '2026-09-21', '   ');
+  assert.deepEqual(CORE.noteList(s), [
+    { date: '2026-09-20', text: '第三条' },
+    { date: '2026-09-19', text: '第二条' },
+    { date: '2026-09-18', text: '第一条' }
+  ]);
 });
 
 test('打卡：去重、连续、断档', () => {

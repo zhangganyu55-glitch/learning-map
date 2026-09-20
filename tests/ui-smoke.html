@@ -91,6 +91,22 @@ async function run() {
   await sleep(500);
   ok('卡点写进了本地存储', JSON.parse(w.localStorage.getItem(KEY)).notes[shift(today, 1)] === '今天卡在异步');
 
+  q('#seg [data-act="viewReview"]').click();
+  await sleep(40);
+  ok('切到回顾视图', !q('#viewReview').hidden && q('#viewCalendar').hidden);
+  ok('连续打卡显示 1', q('#statStreak').textContent === '1', q('#statStreak').textContent);
+  const savedTotal = JSON.parse(w.localStorage.getItem(KEY)).tasks.length;
+  ok('累计完成显示 1/总数', q('#statDone').textContent === '1/' + savedTotal, q('#statDone').textContent);
+  ok('本月完成率有数字', /%$/.test(q('#statMonth').textContent), q('#statMonth').textContent);
+  ok('最近 30 天正好 30 格', qa('#mini .mini-cell').length === 30, qa('#mini .mini-cell').length);
+  ok('今天那格记着 1/1', qa('#mini .mini-cell').at(-1).title.includes('1/1'), qa('#mini .mini-cell').at(-1).title);
+  ok('卡点汇总里能看到刚写的卡点', qa('#notes .note-item').some((n) => n.textContent.includes('今天卡在异步')));
+  ok('卡点很少时不显示「展开全部」按钮', w.getComputedStyle(q('#moreNotes')).display === 'none', w.getComputedStyle(q('#moreNotes')).display);
+  const noteItem = qa('#notes .note-item')[0];
+  noteItem.click();
+  await sleep(40);
+  ok('点卡点会跳回那一天的日历', !q('#viewCalendar').hidden && q('.cell.sel').dataset.date === noteItem.dataset.date, q('.cell.sel').dataset.date);
+
   qa('.row')[0].querySelector('[data-act="move"]').click();
   await sleep(30);
   const dateInput = q('.date-input');
